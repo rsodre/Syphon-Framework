@@ -163,7 +163,6 @@
 		D2F7E79907B2D74100F64583 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = /System/Library/Frameworks/CoreData.framework; sourceTree = "<absolute>"; };
 		DB9A894F1ACB5B1900CF4FEA /* SyphonServer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SyphonServer.m; sourceTree = "<group>"; };
 		DBC97D261A8988D200129E35 /* SyphonBlendy.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SyphonBlendy.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		DBC97D271A8988D300129E35 /* Syphon copy-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Syphon copy-Info.plist"; path = "/Volumes/HDD/Dev/XCode/Syphon/Syphon-Framework/Syphon copy-Info.plist"; sourceTree = "<absolute>"; };
 		E2DE7FD112495BF50081453B /* SyphonMessageQueue.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SyphonMessageQueue.h; sourceTree = "<group>"; };
 		E2DE7FD212495BF50081453B /* SyphonMessageQueue.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SyphonMessageQueue.m; sourceTree = "<group>"; };
 		E2F73E34127CE2D300240AE6 /* index.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = index.html; sourceTree = "<group>"; };
@@ -214,7 +213,6 @@
 				BDCB92AE127A3C7200C9E06E /* Documentation */,
 				0867D69AFE84028FC02AAC07 /* External Frameworks and Libraries */,
 				034768DFFF38A50411DB9C8B /* Products */,
-				DBC97D271A8988D300129E35 /* Syphon copy-Info.plist */,
 			);
 			name = OpenVideoTap;
 			sourceTree = "<group>";
@@ -627,7 +625,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "export FW=\"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\"\nexport DEST=\"/Volumes/HDD/Dev/Cinder/cinder-rsodre/blocks/Syphon/lib/\"\nexport DEST_FW=\"$DEST/${FULL_PRODUCT_NAME}\"\nif [ -d $DEST_FW ]; then\nrm -rf $DEST_FW\n# Control will enter here if $DIRECTORY exists.\nfi\ncp -R $FW $DEST";
+			shellScript = "exit 0\nexport FW=\"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\"\nexport DEST=\"/Users/Roger/Dev/Cinder/cinder-rsodre/blocks/Syphon/lib/\"\nexport DEST_FW=\"$DEST/${FULL_PRODUCT_NAME}\"\nif [ -d $DEST_FW ]; then\nrm -rf $DEST_FW\n# Control will enter here if $DIRECTORY exists.\nfi\ncp -R $FW $DEST";
 		};
 		DBC97CF61A8988D200129E35 /* Generate Exported Symbols File */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -808,10 +806,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				DOXYGEN_PATH = /Applications/Doxygen.app/Contents/Resources/doxygen;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					DEBUG,
-					"SYPHON_UNIQUE_CLASS_NAME_PREFIX=Blendy",
-				);
+				GCC_PREPROCESSOR_DEFINITIONS = DEBUG;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
@@ -839,7 +834,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				DOXYGEN_PATH = /Applications/Doxygen.app/Contents/Resources/doxygen;
-				GCC_PREPROCESSOR_DEFINITIONS = "SYPHON_UNIQUE_CLASS_NAME_PREFIX=Blendy";
+				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
@@ -870,7 +865,6 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					SYPHON_DEBUG_NO_DRAWING,
 					DEBUG,
-					"SYPHON_UNIQUE_CLASS_NAME_PREFIX=Blendy",
 				);
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -953,6 +947,10 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = Syphon_Prefix.pch;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					DEBUG,
+					"SYPHON_UNIQUE_CLASS_NAME_PREFIX=Blendy",
+				);
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREPROCESS = NO;
 				LD_DYLIB_INSTALL_NAME = "@loader_path/../Frameworks/$(EXECUTABLE_PATH)";
@@ -975,6 +973,11 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = Syphon_Prefix.pch;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					SYPHON_DEBUG_NO_DRAWING,
+					DEBUG,
+					"SYPHON_UNIQUE_CLASS_NAME_PREFIX=Blendy",
+				);
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREPROCESS = NO;
 				LD_DYLIB_INSTALL_NAME = "@loader_path/../Frameworks/$(EXECUTABLE_PATH)";
@@ -995,6 +998,7 @@
 				FRAMEWORK_VERSION = A;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = Syphon_Prefix.pch;
+				GCC_PREPROCESSOR_DEFINITIONS = "SYPHON_UNIQUE_CLASS_NAME_PREFIX=Blendy";
 				INFOPLIST_FILE = Info.plist;
 				LD_DYLIB_INSTALL_NAME = "@loader_path/../Frameworks/$(EXECUTABLE_PATH)";
 				PRODUCT_NAME = SyphonBlendy;
