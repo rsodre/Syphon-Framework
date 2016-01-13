@@ -625,7 +625,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "exit 0\nexport FW=\"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\"\nexport DEST=\"/Users/Roger/Dev/Cinder/cinder-rsodre/blocks/Syphon/lib/\"\nexport DEST_FW=\"$DEST/${FULL_PRODUCT_NAME}\"\nif [ -d $DEST_FW ]; then\nrm -rf $DEST_FW\n# Control will enter here if $DIRECTORY exists.\nfi\ncp -R $FW $DEST";
+			shellScript = "export FW=\"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\"\nexport DEST=\"/Users/Roger/Dev/Cinder/cinder-rsodre/blocks/Syphon/lib/\"\nexport DEST_FW=\"$DEST/${FULL_PRODUCT_NAME}\"\nif [ -d \"$DEST_FW\" ]; then\nrm -rf \"$DEST_FW\"\nfi\ncp -R \"$FW\" \"$DEST\"\nls -l \"$DEST\"";
 		};
 		DBC97CF61A8988D200129E35 /* Generate Exported Symbols File */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -679,7 +679,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "export FW=\"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\"\nexport DEST=\"/Volumes/HDD/Dev/Cinder/cinder-rsodre/blocks/Syphon/lib/\"\nexport DEST_FW=\"$DEST/${FULL_PRODUCT_NAME}\"\nif [ -d $DEST_FW ]; then\nrm -rf $DEST_FW\n# Control will enter here if $DIRECTORY exists.\nfi\ncp -R $FW $DEST";
+			shellScript = "export FW=\"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\"\nexport DEST=\"/Users/Roger/Dev/Cinder/cinder-rsodre/blocks/Syphon/lib/\"\nexport DEST_FW=\"$DEST/${FULL_PRODUCT_NAME}\"\nif [ -d \"$DEST_FW\" ]; then\nrm -rf \"$DEST_FW\"\nfi\ncp -R \"$FW\" \"$DEST\"\nls -l \"$DEST\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -842,10 +842,10 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				DOXYGEN_PATH = /Applications/Doxygen.app/Contents/Resources/doxygen;
-				GCC_PREPROCESSOR_DEFINITIONS = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
