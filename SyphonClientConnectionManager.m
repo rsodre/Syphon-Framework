@@ -112,27 +112,16 @@ static void SyphonClientPrivateRemoveInstance(id instance, NSString *uuid)
 		_myUUID = SyphonCreateUUIDString();
 		
 		SyphonClientPrivateInsertInstance(self, serverUUID);
-		_frames = [[NSMapTable mapTableWithKeyOptions:(NSPointerFunctionsOpaquePersonality | NSPointerFunctionsOpaqueMemory)
-										 valueOptions:(NSPointerFunctionsObjectPersonality | NSPointerFunctionsStrongMemory)] retain];
-        _invalidFrames = [[NSMapTable mapTableWithKeyOptions:(NSPointerFunctionsOpaquePersonality | NSPointerFunctionsOpaqueMemory)
-                                                valueOptions:(NSPointerFunctionsObjectPersonality | NSPointerFunctionsStrongMemory)] retain];
 	}
 	return self;
-}
-
-- (void)finalize
-{
-	if (_frameQueue) dispatch_release(_frameQueue);
-	[super finalize];
 }
 
 - (void) dealloc
 {
 	SyphonClientPrivateRemoveInstance(self, [_serverDescription objectForKey:SyphonServerDescriptionUUIDKey]);
-	[_frames release];
-    [_invalidFrames release];
 	if (_frameQueue) dispatch_release(_frameQueue);
 	[_frameClients release];
+    [_infoClients release];
 	[_serverDescription release];
 	[_myUUID release];
 	[super dealloc];
@@ -160,30 +149,9 @@ static void SyphonClientPrivateRemoveInstance(id instance, NSString *uuid)
 		CFRelease(_surface);
 		_surface = NULL;
     }
-    
-    /*
-     Because releasing a SyphonImage causes a glDelete we postpone deletion until we are using that context
-     */
-    NSMapEnumerator enumerator = NSEnumerateMapTable(_frames);
-    
-    void *key, *value;
-    BOOL success;
-    
-    do {
-        success = NSNextMapEnumeratorPair(&enumerator, &key, &value);
-        if (success)
-        {
-            /*
-             Keys are known absent because we always delete any item from _invalidFrames
-             prior to inserting a new one in _frames
-             */
-            NSMapInsertKnownAbsent(_invalidFrames, key, value);
-        }
-    } while (success);
-    
-    NSEndMapTableEnumeration(&enumerator);
-
-    NSResetMapTable(_frames);
+    for (id <SyphonInfoReceiving> obj in _infoClients) {
+        [obj invalidateFrame];
+    }
 }
 
 - (BOOL)isValid
@@ -195,13 +163,16 @@ static void SyphonClientPrivateRemoveInstance(id instance, NSString *uuid)
 	return result;
 }
 
-- (void)addInfoClient:(id)client
+- (void)addInfoClient:(id <SyphonInfoReceiving>)client isFrameClient:(BOOL)isFrameClient
 {
 	OSSpinLockLock(&_lock);
-	_infoClientCount++;
+	if (_infoClients == nil)
+    {
+        _infoClients = [[NSHashTable hashTableWithWeakObjects] retain];
+    }
+    [_infoClients addObject:client];
 	BOOL shouldSendAdd = NO;
-	NSString *serverUUID = nil;
-	if (_infoClientCount == 1)
+	if (_infoClients.count == 1)
 	{
 		// set up a connection to receive and deal with messages from the server
 		_connection = [[SyphonMessageReceiver alloc] initForName:_myUUID protocol:SyphonMessagingProtocolCFMessage handler:^(id data, uint32_t type) {
@@ -226,15 +197,26 @@ static void SyphonClientPrivateRemoveInstance(id instance, NSString *uuid)
 		
 		if (_connection != nil)
 		{
-			serverUUID = [_serverDescription objectForKey:SyphonServerDescriptionUUIDKey];
 			_active = shouldSendAdd = YES;
 		}
 	}
+    if (isFrameClient && _frameQueue == nil)
+    {
+        _frameQueue = dispatch_queue_create([_myUUID cStringUsingEncoding:NSUTF8StringEncoding], 0);
+        _frameClients = [[NSHashTable hashTableWithWeakObjects] retain];
+    }
 	OSSpinLockUnlock(&_lock);
+    if (isFrameClient)
+    {
+        // only access _frameClients within the queue
+        dispatch_sync(_frameQueue, ^{
+            [_frameClients addObject:client];
+        });
+    }
 	// We can do this outside the lock because we're not using any protected resources
-	if (shouldSendAdd)
+	if (shouldSendAdd || isFrameClient)
 	{
-		SYPHONLOG(@"Registering for info updates");
+        NSString *serverUUID = [self.serverDescription objectForKey:SyphonServerDescriptionUUIDKey];
 		SyphonMessageSender *sender = [[SyphonMessageSender alloc] initForName:serverUUID
 																	  protocol:SyphonMessagingProtocolCFMessage
 														   invalidationHandler:nil];
@@ -244,81 +226,57 @@ static void SyphonClientPrivateRemoveInstance(id instance, NSString *uuid)
 			SYPHONLOG(@"Failed to create connection to server with uuid:%@", serverUUID);
 			[self endConnectionHavingLock:NO];
 		}
-		[sender send:_myUUID ofType:SyphonMessageTypeAddClientForInfo];
+        if (shouldSendAdd)
+        {
+            SYPHONLOG(@"Registering for info updates");
+            [sender send:_myUUID ofType:SyphonMessageTypeAddClientForInfo];
+        }
+        if (isFrameClient && OSAtomicIncrement32(&_handlerCount) == 1)
+        {
+            SYPHONLOG(@"Registering for frame updates");
+            [sender send:_myUUID ofType:SyphonMessageTypeAddClientForFrames];
+        }
 		[sender release];
 	}
 }
 
-- (void)removeInfoClient:(id)client
+- (void)removeInfoClient:(id <SyphonInfoReceiving>)client isFrameClient:(BOOL)isFrameClient
 {
+    if (isFrameClient)
+    {
+        dispatch_sync(_frameQueue, ^{
+            [_frameClients removeObject:client];
+        });
+    }
 	OSSpinLockLock(&_lock);
-	_infoClientCount--;
-	if (_infoClientCount == 0)
+    [_infoClients removeObject:client];
+    BOOL shouldSendRemove = (_infoClients.count == 0 && _active) ? YES : NO;
+    BOOL shouldSendFrameRemove = (isFrameClient && _active) ? YES : NO;
+	if (shouldSendRemove)
 	{
-		// Remove ourself from the server
-		NSString *serverUUID = [_serverDescription objectForKey:SyphonServerDescriptionUUIDKey];
-		if (_active)
-		{
-			SYPHONLOG(@"De-registering for info updates");
-			SyphonMessageSender *sender = [[SyphonMessageSender alloc] initForName:serverUUID
-																		  protocol:SyphonMessagingProtocolCFMessage
-															   invalidationHandler:nil];
-			[sender send:_myUUID ofType:SyphonMessageTypeRemoveClientForInfo];
-			[sender release];
-			[self endConnectionHavingLock:YES];
-		}
+        [self endConnectionHavingLock:YES];
 	}
 	OSSpinLockUnlock(&_lock);
-}
+    if (shouldSendRemove || shouldSendFrameRemove)
+    {
+        // Remove ourself from the server
+        NSString *serverUUID = [self.serverDescription objectForKey:SyphonServerDescriptionUUIDKey];
+        SyphonMessageSender *sender = [[SyphonMessageSender alloc] initForName:serverUUID
+                                                                      protocol:SyphonMessagingProtocolCFMessage
+                                                           invalidationHandler:nil];
 
-- (void)addFrameClient:(id)client
-{
-	OSSpinLockLock(&_lock);
-	if (_frameQueue == nil)
-	{
-		_frameQueue = dispatch_queue_create([_myUUID cStringUsingEncoding:NSUTF8StringEncoding], 0);
-		_frameClients = [[NSHashTable hashTableWithWeakObjects] retain];
-	}
-	OSSpinLockUnlock(&_lock);
-	// only access _frameClients within the queue
-	dispatch_sync(_frameQueue, ^{
-		[_frameClients addObject:client];
-	});
-	if (OSAtomicIncrement32(&_handlerCount) == 1)
-	{
-		SYPHONLOG(@"Registering for frame updates");
-		SyphonMessageSender *sender = [[SyphonMessageSender alloc] initForName:[self.serverDescription objectForKey:SyphonServerDescriptionUUIDKey]
-																	  protocol:SyphonMessagingProtocolCFMessage
-														   invalidationHandler:nil];
-		if (sender == nil)
-		{
-			SYPHONLOG(@"Failed to create connection to server with uuid:%@", [self.serverDescription objectForKey:SyphonServerDescriptionUUIDKey]);
-			[self endConnectionHavingLock:NO];
-		}
-		[sender send:_myUUID ofType:SyphonMessageTypeAddClientForFrames];
-		[sender release];
-	}
-}
-
-- (void)removeFrameClient:(id)client
-{
-	dispatch_sync(_frameQueue, ^{
-		[_frameClients removeObject:client];
-	});
-	if (OSAtomicDecrement32(&_handlerCount) == 0 && self.isValid)
-	{
-		SYPHONLOG(@"De-registering for frame updates");
-		SyphonMessageSender *sender = [[SyphonMessageSender alloc] initForName:[self.serverDescription objectForKey:SyphonServerDescriptionUUIDKey]
-																	  protocol:SyphonMessagingProtocolCFMessage
-														   invalidationHandler:nil];
-		if (sender == nil)
-		{
-			SYPHONLOG(@"Failed to create connection to server with uuid:%@", [self.serverDescription objectForKey:SyphonServerDescriptionUUIDKey]);
-			[self endConnectionHavingLock:NO];
-		}
-		[sender send:_myUUID ofType:SyphonMessageTypeRemoveClientForFrames];
-		[sender release];
-	}
+        if (shouldSendFrameRemove && OSAtomicDecrement32(&_handlerCount) == 0)
+        {
+            SYPHONLOG(@"De-registering for frame updates");
+            [sender send:_myUUID ofType:SyphonMessageTypeRemoveClientForFrames];
+        }
+        if (shouldSendRemove)
+        {
+            SYPHONLOG(@"De-registering for info updates");
+            [sender send:_myUUID ofType:SyphonMessageTypeRemoveClientForInfo];
+        }
+        [sender release];
+    }
 }
 
 - (NSString*) description
@@ -389,27 +347,8 @@ static void SyphonClientPrivateRemoveInstance(id instance, NSString *uuid)
 	SyphonImage *result;
 	OSSpinLockLock(&_lock);
     
-    /*
-     While we are permitted to do work in the context remove any invalid frame
-     */
-    NSMapRemove(_invalidFrames, context);
-    
-    /*
-     Check for a cached frame
-     */
-	result = NSMapGet(_frames, context);
-	if (result)
-	{
-		[result retain];
-	}
-	else
-	{
-        /*
-         No cached frame was available, create a new one and cache it
-         */
-		result = [[SyphonIOSurfaceImage alloc] initWithSurface:[self surfaceHavingLock] forContext:context];
-		NSMapInsertKnownAbsent(_frames, context, result);
-	}
+    result = [[SyphonIOSurfaceImage alloc] initWithSurface:[self surfaceHavingLock] forContext:context];
+	
 	OSSpinLockUnlock(&_lock);
 	return result;
 }
