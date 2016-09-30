@@ -517,6 +517,59 @@ static void finalizer()
 	}
 }
 
+- (void)publishRenderBlock:(void (^)(void))renderBlock size:(NSSize)size
+{
+	if(renderBlock != 0 && [self bindToDrawFrameOfSize:size])
+	{
+#if !SYPHON_DEBUG_NO_DRAWING
+		// render to our FBO with an IOSurface backed texture attachment (whew!)
+		
+		glPushAttrib(GL_ALL_ATTRIB_BITS);
+		glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
+		// Setup OpenGL states
+		NSSize surfaceSize = _surfaceTexture.textureSize;
+		glViewport(0, 0, surfaceSize.width,  surfaceSize.height);
+		
+		// We need to ensure we set this before changing our texture matrix
+		glActiveTexture(GL_TEXTURE0);
+		// ensure we act on the proper client texture as well
+		glClientActiveTexture(GL_TEXTURE0);
+		
+		glMatrixMode(GL_TEXTURE);
+		glPushMatrix();
+		glLoadIdentity();
+		
+		glMatrixMode(GL_PROJECTION);
+		glPushMatrix();
+		glLoadIdentity();
+		glOrtho(0, surfaceSize.width, 0, surfaceSize.height, -1, 1);
+		
+		glMatrixMode(GL_MODELVIEW);
+		glPushMatrix();
+		glLoadIdentity();
+		
+		// Render the block
+		renderBlock();
+		
+		// Restore OpenGL states
+		glMatrixMode(GL_MODELVIEW);
+		glPopMatrix();
+		
+		glMatrixMode(GL_PROJECTION);
+		glPopMatrix();
+		
+		
+		glMatrixMode(GL_TEXTURE);
+		glPopMatrix();
+		
+		glPopClientAttrib();
+		glPopAttrib();
+#endif // SYPHON_DEBUG_NO_DRAWING
+		[self unbindAndPublish];
+	}
+}
+
+
 - (SYPHON_IMAGE_UNIQUE_CLASS_NAME *)newFrameImage
 {
 	return [_surfaceTexture retain];
